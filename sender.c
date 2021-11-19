@@ -17,7 +17,7 @@
 #include <string.h>
 
 #define OR_DIE do {if (result) return result;} while(0)
-
+int count = 0;
 struct Sended_file 
 {
     pid_t receiver_pid;
@@ -101,6 +101,8 @@ int main(int argc, char* argv[])
         }
         return result;
     }
+
+    if (kill(snd_file.receiver_pid, SIGTERM) == -1) handler_TERM(SIGTERM);
     gettimeofday(&end_transmission, NULL);
 
 
@@ -112,8 +114,8 @@ int main(int argc, char* argv[])
 
     gettimeofday(&end, NULL);
     
-    printf("Only transmition time: %lg  * 10^6 bytes/sec\n",  1.0 * snd_file.size / (end_transmission.tv_usec - start_transmission.tv_usec));
-    printf("Total transmition time: %lg * 10^6 bytes/sec\n", 1.0 * snd_file.size / (end.tv_usec - start.tv_usec));
+    printf("Only transmition time:  %lg mb/sec\n",  1.0 * snd_file.size / 1024 / 1024 / (end_transmission.tv_sec - start_transmission.tv_sec));
+    printf("Total transmition time: %lg mb/sec\n",  1.0 * snd_file.size / 1024 / 1024 / (end.tv_sec - start.tv_sec));
     return 0;
 }
 
@@ -137,13 +139,13 @@ int send_size(struct Sended_file* file, sigset_t* set)
         perror("ERROR: sigqueue SIGUSR1");
         return ERROR_SIGQUEUE;
     }
-
+    
     int sig = 0;
-    while (!(file->info.si_signo == SIGUSR1 && file->info.si_pid == file->receiver_pid))
-    {
+    // while (!(file->info.si_signo == SIGUSR1 && file->info.si_pid == file->receiver_pid))
+    // {
         sig = sigwaitinfo(set, &file->info);
         if (sig == SIGTERM) handler_TERM(sig);
-    }
+    //}
     
     return 0;
 }
@@ -158,8 +160,6 @@ int send_data(struct Sended_file* file, sigset_t* set)
 
     while (index + 7 < file->size)
     {  
-        printf("index: %lu size: %lu\n", index, file->size);
-
         memcpy(&value, file->buffer + index, sizeof(void*));
         if (sigqueue(file->receiver_pid, SIGUSR2, value) == -1)
         {
@@ -170,11 +170,11 @@ int send_data(struct Sended_file* file, sigset_t* set)
         index += sizeof(void*);
         value.sival_ptr = NULL;
 
-        while (!(file->info.si_signo == SIGUSR2 && file->info.si_pid == file->receiver_pid))
-        {
+        // while (!(file->info.si_signo == SIGUSR2 && file->info.si_pid == file->receiver_pid))
+        // {
             sig = sigwaitinfo(set, &file->info);
             if (sig == SIGTERM) handler_TERM(sig);
-        }
+       // }
     }
 
    
@@ -185,12 +185,12 @@ int send_data(struct Sended_file* file, sigset_t* set)
         return ERROR_SIGQUEUE;
     }
 
-    while (!(file->info.si_signo == SIGUSR2 && file->info.si_pid == file->receiver_pid))
-    {   
+    // while (!(file->info.si_signo == SIGUSR2 && file->info.si_pid == file->receiver_pid))
+    // {   
         sig = sigwaitinfo(set, &file->info);
         if (sig == SIGTERM) handler_TERM(sig);
-    }
-    
+  //  }
+
     return 0;
 }
 
@@ -230,14 +230,7 @@ int sigconfigure(sigset_t* set)
     sigaddset(set, SIGUSR2);
     sigaddset(set, SIGTERM);
 
-    struct sigaction usr1 = {.sa_handler = handler_empty, .sa_mask = *set};
-    struct sigaction usr2 = {.sa_handler = handler_empty, .sa_mask = *set};
-    struct sigaction term = {.sa_handler = handler_TERM,  .sa_mask = *set};
-    sigaction(SIGUSR1, &usr1, NULL);
-    sigaction(SIGUSR2, &usr2, NULL);
-    sigaction(SIGTERM, &term, NULL);
-
-    if (sigprocmask(SIG_UNBLOCK, set, NULL) == -1)
+    if (sigprocmask(SIG_BLOCK, set, NULL) == -1)
     {
         perror("ERROR: sigprocmask");
         return  ERROR_SIGPROCMASK;

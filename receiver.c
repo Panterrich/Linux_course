@@ -59,7 +59,7 @@ void handler_TERM(int sig);
 //==============================================================================
 
 struct Received_file rcv_file = {};
-
+int count = 0;
 int main(int argc, char* argv[])
 {
     if (argc != 2)
@@ -70,7 +70,7 @@ int main(int argc, char* argv[])
 
     int result = create_file(&rcv_file, argv[1]); OR_DIE;
 
-    sigset_t set  = {};
+    sigset_t set = {};
     result = sigconfigure(&set); OR_DIE;
    
     pid_t pid_receiver = getpid();
@@ -90,7 +90,7 @@ int main(int argc, char* argv[])
                 break;
             case SIGUSR1:
                 handler_USR1(sig);
-                kill(rcv_file.sender_pid, SIGUSR1);
+                if (rcv_file.sender_pid == rcv_file.info.si_pid) kill(rcv_file.sender_pid, SIGUSR1);
                 break;
             default:
                 break;
@@ -116,8 +116,6 @@ int main(int argc, char* argv[])
                 break;
         }
     }
-     
-    printf("index: %lu size: %lu\n", rcv_file.index, rcv_file.size);
 
     if (munmap(rcv_file.buffer, rcv_file.size) == -1)
     {
@@ -166,15 +164,8 @@ int sigconfigure(sigset_t* set)
     sigaddset(set, SIGUSR1);
     sigaddset(set, SIGUSR2);
     sigaddset(set, SIGTERM);
-
-    struct sigaction usr1 = {.sa_handler = handler_USR1, .sa_mask = *set};
-    struct sigaction usr2 = {.sa_handler = handler_USR2, .sa_mask = *set};
-    struct sigaction term = {.sa_handler = handler_TERM, .sa_mask = *set};
-    sigaction(SIGUSR1, &usr1, NULL);
-    sigaction(SIGUSR2, &usr2, NULL);
-    sigaction(SIGTERM, &term, NULL);
     
-    if (sigprocmask(SIG_UNBLOCK, set, NULL) == -1)
+    if (sigprocmask(SIG_BLOCK, set, NULL) == -1)
     {
         perror("ERROR: sigprocmask");
         return  ERROR_SIGPROCMASK;
