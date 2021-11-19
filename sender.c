@@ -17,7 +17,6 @@
 #include <string.h>
 
 #define OR_DIE do {if (result) return result;} while(0)
-int count = 0;
 struct Sended_file 
 {
     pid_t receiver_pid;
@@ -51,7 +50,7 @@ int send_size(struct Sended_file* file, sigset_t* set);
 int send_data(struct Sended_file* file, sigset_t* set);
 
 void handler_TERM(int sig);
-void handler_empty(int sig);
+void handler_INT(int sig);
 
 struct Sended_file snd_file = {};
 
@@ -235,6 +234,9 @@ int sigconfigure(sigset_t* set)
     sigaddset(set, SIGUSR1);
     sigaddset(set, SIGUSR2);
     sigaddset(set, SIGTERM);
+    
+    struct sigaction act = {.sa_handler = handler_INT};
+    sigaction(SIGINT, &act, NULL);
 
     if (sigprocmask(SIG_BLOCK, set, NULL) == -1)
     {
@@ -258,4 +260,8 @@ void handler_TERM(int sig)
     exit(EXIT_FAILURE);
 }
 
-void handler_empty(int sig) {}
+void handler_INT(int sig)
+{
+    kill(snd_file.receiver_pid, SIGINT);
+    handler_TERM(sig);
+}

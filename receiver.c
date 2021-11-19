@@ -55,11 +55,12 @@ int sigconfigure(sigset_t* set);
 void handler_USR1(int sig);
 void handler_USR2(int sig);
 void handler_TERM(int sig);
+void handler_INT(int sig);
 
 //==============================================================================
 
 struct Received_file rcv_file = {};
-int count = 0;
+
 int main(int argc, char* argv[])
 {
     if (argc != 2)
@@ -80,7 +81,7 @@ int main(int argc, char* argv[])
     while (rcv_file.info.si_signo != SIGUSR1)
     {   
         sig = sigwaitinfo(&set, &rcv_file.info);
-        
+       
         switch (sig)
         {
             case -1:
@@ -167,6 +168,9 @@ int sigconfigure(sigset_t* set)
     sigaddset(set, SIGUSR1);
     sigaddset(set, SIGUSR2);
     sigaddset(set, SIGTERM);
+    
+    struct sigaction act = {.sa_handler = handler_INT};
+    sigaction(SIGINT, &act, NULL);
     
     if (sigprocmask(SIG_BLOCK, set, NULL) == -1)
     {
@@ -271,4 +275,10 @@ void handler_TERM(int sig)
     }
 
     exit(EXIT_FAILURE);
+}
+
+void handler_INT(int sig)
+{
+    kill(rcv_file.sender_pid, SIGTERM);
+    handler_TERM(sig);
 }
