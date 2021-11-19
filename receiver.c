@@ -107,6 +107,9 @@ int main(int argc, char* argv[])
             case SIGTERM:
                 handler_TERM(sig);
                 break;
+            case SIGUSR1:
+                kill(rcv_file.info.si_pid, SIGTERM);
+                break;
             case SIGUSR2:
                 handler_USR2(sig);
                 kill(rcv_file.sender_pid, SIGUSR2);

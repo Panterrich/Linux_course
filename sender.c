@@ -141,11 +141,11 @@ int send_size(struct Sended_file* file, sigset_t* set)
     }
     
     int sig = 0;
-    // while (!(file->info.si_signo == SIGUSR1 && file->info.si_pid == file->receiver_pid))
-    // {
+    while (!(file->info.si_signo == SIGUSR1 && file->info.si_pid == file->receiver_pid))
+    {
         sig = sigwaitinfo(set, &file->info);
         if (sig == SIGTERM) handler_TERM(sig);
-    //}
+    }
     
     return 0;
 }
@@ -170,11 +170,14 @@ int send_data(struct Sended_file* file, sigset_t* set)
         index += sizeof(void*);
         value.sival_ptr = NULL;
 
-        // while (!(file->info.si_signo == SIGUSR2 && file->info.si_pid == file->receiver_pid))
-        // {
+        do
+        {       
+            memset(&file->info, 0, sizeof(siginfo_t));   
             sig = sigwaitinfo(set, &file->info);
             if (sig == SIGTERM) handler_TERM(sig);
-       // }
+
+        } while (!(file->info.si_signo == SIGUSR2 && file->info.si_pid == file->receiver_pid));
+        
     }
 
    
@@ -185,11 +188,14 @@ int send_data(struct Sended_file* file, sigset_t* set)
         return ERROR_SIGQUEUE;
     }
 
-    // while (!(file->info.si_signo == SIGUSR2 && file->info.si_pid == file->receiver_pid))
-    // {   
+    
+    do
+    {   
+        memset(&file->info, 0, sizeof(siginfo_t));
         sig = sigwaitinfo(set, &file->info);
         if (sig == SIGTERM) handler_TERM(sig);
-  //  }
+
+    } while (!(file->info.si_signo == SIGUSR2 && file->info.si_pid == file->receiver_pid));
 
     return 0;
 }
