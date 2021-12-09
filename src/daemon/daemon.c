@@ -26,7 +26,7 @@ int daemonize(char* name, char* path, char* in_file, char* out_file, char* err_f
         exit(EXIT_FAILURE);
     }
 
-    signal_configuration();
+    sighandler_configuration();
 
     if ((pid = fork()) == -1)
     {
@@ -58,10 +58,12 @@ void shutdown(int num)
 {
     close(fd_fifo);
     close(fd_pid);
+
+    closelog();
     exit(EXIT_SUCCESS);
 }
 
-void signal_configuration()
+void sighandler_configuration()
 {
     struct sigaction sa = {.sa_handler = SIG_IGN};
 
@@ -75,25 +77,20 @@ void signal_configuration()
         perror("ERROR: SIGHUP sigaction");
         exit(EXIT_FAILURE);
     }
+}
 
-    sa.sa_handler = shutdown;
-    if (sigaction(SIGTERM, &sa, NULL) == -1) 
-    {
-        perror("ERROR: SIGHUP sigaction");
-        exit(EXIT_FAILURE);
-    }
+void sigmask_configuration(sigset_t* wait)
+{
+    sigemptyset(wait);
+    sigaddset(wait, SIGUSR1);
+    sigaddset(wait, SIGUSR2);
+    sigaddset(wait, SIGALRM);
+    sigaddset(wait, SIGTERM) ;
+    sigaddset(wait, SIGQUIT);
+    sigaddset(wait, SIGHUP);
+    sigaddset(wait, SIGINT);
 
-    sigset_t wait = {};
-
-    sigemptyset(&wait);
-    sigaddset(&wait, SIGUSR1);
-    sigaddset(&wait, SIGUSR2);
-    sigaddset(&wait, SIGALRM);
-    sigaddset(&wait, SIGTERM);
-    sigaddset(&wait, SIGQUIT);
-    sigaddset(&wait, SIGINT);
-
-    if (sigprocmask(SIG_BLOCK, &wait, NULL) == -1)
+    if (sigprocmask(SIG_BLOCK, wait, NULL) == -1)
     {
         perror("ERROR: sigprocmask");
         exit(EXIT_FAILURE);
@@ -114,7 +111,7 @@ void create_and_lock_pid_file(char* name)
 {
     char* name_pid = create_path("/run/", name, ".pid");
 
-    int fd_pid = open(name_pid, O_RDWR | O_CREAT, 0600);
+    fd_pid = open(name_pid, O_RDWR | O_CREAT, 0666);
 
     free(name_pid);
 
