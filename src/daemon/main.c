@@ -1,23 +1,42 @@
 #include "daemon.h"
 
-extern fd_fifo;
+extern int fd_fifo;
 
-int main()
+int main(int argc, char* argv[])
 {
-    static int delay = 10;
-    static int mode  = 0;
+    if (argc != 1 && argc != 3)
+    {
+        printf("Please run daemon without args or specify 2 directories\n");
+        return 1;
+    }
 
     char src_directory[1001] = "";
     char dst_directory[1001] = "";
     size_t src_len = 0;
     size_t dst_len = 0;
 
+    if (argc == 3) 
+    {
+        if (!check_args(argv[1], argv[2]))
+        {
+            return 1;
+        }
+
+        strncpy(src_directory, argv[1], 1000);
+        strncpy(dst_directory, argv[2], 1000);
+        src_len = strlen(src_directory);
+        dst_len = strlen(dst_directory);
+    }
 
     if (daemonize(NULL, NULL, NULL, NULL, NULL) != 0)
     {
         perror("ERROR: daemonize");
         exit(EXIT_FAILURE);
     }
+
+        
+    static int delay = 10;
+    static int mode  = 0;
 
     sigset_t sig = {};
     sigmask_configuration(&sig);
@@ -98,8 +117,16 @@ int main()
                     }
 
                     DIR* dir = opendir(dst_directory);
-
-                    if (!dir)
+                    
+                    if (!dir && errno == ENOENT)
+                    {
+                        if (mkdir(dst_directory, 0666))
+                        {
+                            syslog(LOG_ERR, "daemon can't make directory ");
+                            break;
+                        }
+                    }
+                    else if (!dir)
                     {
                         dst_len = 0;
                         syslog(LOG_WARNING, "controller send novalid directory path");
@@ -139,6 +166,7 @@ int main()
 
                 info.si_int = 0;
             }
+            break;
 
             case SIGQUIT:
             case SIGTERM:
@@ -168,6 +196,7 @@ int main()
             default:
                 syslog(LOG_WARNING, "undefined signal");
                 break;
+        }
     }
 
     syslog(LOG_NOTICE, "finished");

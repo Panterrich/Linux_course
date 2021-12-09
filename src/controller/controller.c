@@ -43,6 +43,8 @@ int check_pid(pid_t pid)
 
 void menu(pid_t pid)
 {
+    screen_clear();
+
     while (1)
     {
         printf("# Daemon POWER[%d] controller\n"
@@ -181,10 +183,10 @@ int Mode_change_src_dst(pid_t pid)
 
     DIR* dir = opendir(path);
 
-    if (!dir)
+    if (!dir && ((mode == KEY_2 && errno != ENOENT) || mode == KEY_1))
     {
         screen_clear();
-        printf("\"%s\" isn't directory", path);
+        printf("\"%s\" isn't directory\n", path);
         return 1;
     }
 
@@ -263,6 +265,8 @@ int Mode_change_backup_mode(pid_t pid)
         printf("Undefined mode\n");
         return 1;
     }
+
+    screen_clear();
 
     value.sival_int = mode - KEY_1;
 

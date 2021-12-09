@@ -23,6 +23,8 @@ enum MODE
 
 //=========================================================================================
 
+int check_args(char* src, char* dst);
+
 int daemonize(char* name, char* path, char* in_file, char* out_file, char* err_file);
 
 void sighandler_configuration();
