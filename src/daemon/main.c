@@ -101,6 +101,15 @@ int main(int argc, char* argv[])
                     syslog(LOG_NOTICE, "controller check this demon");
                     break;
                 }
+                if (info.si_int == -2)
+                {
+                    info.si_int = 0;
+                    if (dump(dst_directory))
+                    {
+                        syslog(LOG_NOTICE, "dump wasn't completed");
+                    }
+                    break;
+                }
 
                 delay = (info.si_int) > 0 ? info.si_int : delay;
                 syslog(LOG_NOTICE, "controller set a new interval: %d", delay);

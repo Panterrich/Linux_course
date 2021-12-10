@@ -19,8 +19,8 @@
 
 enum ERRORS
 {
-    ERROR_OPEN_PID = -1,
-    ERROR_READ_PID = -2,
+    ERROR_OPEN_PID        = -1,
+    ERROR_READ_PID        = -2,
 };
 
 enum KEYS
@@ -31,6 +31,7 @@ enum KEYS
     KEY_4 = 52,
     KEY_5 = 53,
     KEY_6 = 54,
+    KEY_7 = 55,
 };
 
 //=========================================================================

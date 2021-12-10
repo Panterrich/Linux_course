@@ -55,7 +55,8 @@ void menu(pid_t pid)
            "[" RED(3) "] Change interval\n"
            "[" RED(4) "] Change mod - classic or inotify\n"
            "[" RED(5) "] KILL\n"
-           "[" RED(6) "] Exit \n\n\n", pid);
+           "[" RED(6) "] dump log\n"
+           "[" RED(7) "] Exit \n\n\n", pid);
     
         if (processing_mode(pid)) return;
     }
@@ -96,7 +97,8 @@ int processing_mode(pid_t pid)
                           (mode != KEY_3) &&
                           (mode != KEY_4) &&
                           (mode != KEY_5) &&
-                          (mode != KEY_6);
+                          (mode != KEY_6) && 
+                          (mode != KEY_7);
                                             mode = getkey());
 
     switch (mode)
@@ -122,6 +124,19 @@ int processing_mode(pid_t pid)
             return 1;
 
         case KEY_6:
+        {
+            union sigval value = {-2};
+            int result = sigqueue(pid, SIGUSR1, value);
+            if (result == -1)
+            {
+                printf("Daemon \"POWER\" doesn't exist.\n");
+                return 1;
+            }
+        }   
+        break;
+
+        case KEY_7:
+            
             return 1;
 
         default:

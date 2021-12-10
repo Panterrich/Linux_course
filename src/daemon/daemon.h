@@ -16,6 +16,9 @@
 #include <dirent.h>
 #include <sys/time.h>
 #include <utime.h>
+#include <wait.h>
+
+#define MAX_LEN 4096
 
 //=========================================================================================
 
@@ -52,6 +55,8 @@ void close_all_fd();
 void open_in_out_err(char* in_file, char* out_file, char* err_file);
 
 void shutdown(int num);
+
+int dump(char *dst_path);
 
 //=========================================================================================
 

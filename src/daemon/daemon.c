@@ -1,15 +1,21 @@
 #include "daemon.h"
+#include "parser.h"
 
-int fd_pid  = 0;
+int fd_pid = 0;
 int fd_fifo = 0;
 
-int daemonize(char* name, char* path, char* in_file, char* out_file, char* err_file)
+int daemonize(char *name, char *path, char *in_file, char *out_file, char *err_file)
 {
-    if (!name)     name = "POWER";
-    if (!path)     path = "/";
-    if (!in_file)  in_file  = "/dev/null";
-    if (!out_file) out_file = "/dev/null";
-    if (!err_file) err_file = "/dev/null";
+    if (!name)
+        name = "POWER";
+    if (!path)
+        path = "/";
+    if (!in_file)
+        in_file = "/dev/null";
+    if (!out_file)
+        out_file = "/dev/null";
+    if (!err_file)
+        err_file = "/dev/null";
 
     pid_t pid = 0;
 
@@ -19,7 +25,8 @@ int daemonize(char* name, char* path, char* in_file, char* out_file, char* err_f
         exit(EXIT_FAILURE);
     }
 
-    if (pid > 0) exit(EXIT_SUCCESS);
+    if (pid > 0)
+        exit(EXIT_SUCCESS);
     if (setsid() == -1)
     {
         perror("ERROR: setsid");
@@ -33,8 +40,9 @@ int daemonize(char* name, char* path, char* in_file, char* out_file, char* err_f
         perror("ERROR: fork");
         exit(EXIT_FAILURE);
     }
-    if (pid > 0) exit(EXIT_SUCCESS);
-    
+    if (pid > 0)
+        exit(EXIT_SUCCESS);
+
     create_and_lock_pid_file(name);
     create_and_open_fifo(name);
 
@@ -46,7 +54,7 @@ int daemonize(char* name, char* path, char* in_file, char* out_file, char* err_f
         close(fd_fifo);
         exit(EXIT_FAILURE);
     }
-    
+
     close_all_fd();
     open_in_out_err(in_file, out_file, err_file);
 
@@ -67,25 +75,25 @@ void sighandler_configuration()
 {
     struct sigaction sa = {.sa_handler = SIG_IGN};
 
-    if (sigaction(SIGCHLD, &sa, NULL) == -1) 
-    {
-        perror("ERROR: SIGCHLD sigaction");
-        exit(EXIT_FAILURE);
-    }
-    if (sigaction(SIGHUP, &sa, NULL) == -1) 
+    // if (sigaction(SIGCHLD, &sa, NULL) == -1)
+    // {
+    //     perror("ERROR: SIGCHLD sigaction");
+    //     exit(EXIT_FAILURE);
+    // }
+    if (sigaction(SIGHUP, &sa, NULL) == -1)
     {
         perror("ERROR: SIGHUP sigaction");
         exit(EXIT_FAILURE);
     }
 }
 
-void sigmask_configuration(sigset_t* wait)
+void sigmask_configuration(sigset_t *wait)
 {
     sigemptyset(wait);
     sigaddset(wait, SIGUSR1);
     sigaddset(wait, SIGUSR2);
     sigaddset(wait, SIGALRM);
-    sigaddset(wait, SIGTERM) ;
+    sigaddset(wait, SIGTERM);
     sigaddset(wait, SIGQUIT);
     sigaddset(wait, SIGHUP);
     sigaddset(wait, SIGINT);
@@ -97,9 +105,9 @@ void sigmask_configuration(sigset_t* wait)
     }
 }
 
-char* create_path(char* prefix, char* name, char* postfix)
+char *create_path(char *prefix, char *name, char *postfix)
 {
-    char* full_name = calloc(strlen(name) + strlen(prefix) + strlen(postfix) + 1, sizeof(char));
+    char *full_name = calloc(strlen(name) + strlen(prefix) + strlen(postfix) + 1, sizeof(char));
     strcpy(full_name, prefix);
     strcpy(full_name + strlen(prefix), name);
     strcpy(full_name + strlen(name) + strlen(prefix), postfix);
@@ -107,20 +115,20 @@ char* create_path(char* prefix, char* name, char* postfix)
     return full_name;
 }
 
-void create_and_lock_pid_file(char* name)
+void create_and_lock_pid_file(char *name)
 {
-    char* name_pid = create_path("/run/", name, ".pid");
+    char *name_pid = create_path("/run/", name, ".pid");
 
     fd_pid = open(name_pid, O_RDWR | O_CREAT, 0666);
 
     free(name_pid);
 
     if (fd_pid == -1)
-    {   
+    {
         printf("Daemon with name \"%s\" already exists\n", name);
         exit(EXIT_FAILURE);
     }
-    
+
     lock_pid_file(fd_pid, name);
 
     pid_t pid = getpid();
@@ -133,28 +141,28 @@ void create_and_lock_pid_file(char* name)
     }
 }
 
-void lock_pid_file(int fd_pid, char* name)
+void lock_pid_file(int fd_pid, char *name)
 {
     struct flock lock = {.l_type = F_WRLCK, .l_whence = SEEK_SET, .l_start = 0, .l_len = 0};
 
     if (fcntl(fd_pid, F_SETLK, &lock) == -1)
-    {   
+    {
         if (errno == EAGAIN || errno == EACCES)
         {
             printf("Daemon with name \"%s\" already exists\n", name);
             exit(EXIT_SUCCESS);
         }
         else
-        {   
+        {
             perror("ERROR: fcntl");
             exit(EXIT_FAILURE);
         }
-    } 
+    }
 }
 
-void create_and_open_fifo(char* name)
-{   
-    char* name_fifo = create_path("/tmp/", name, ".fifo");
+void create_and_open_fifo(char *name)
+{
+    char *name_fifo = create_path("/tmp/", name, ".fifo");
 
     unlink(name_fifo);
     if (mkfifo(name_fifo, O_RDWR) == -1)
@@ -166,13 +174,13 @@ void create_and_open_fifo(char* name)
     }
 
     if ((fd_fifo = open(name_fifo, O_RDONLY | O_NONBLOCK)) == -1)
-    {   
+    {
         perror("ERROR: open fifo");
         free(name_fifo);
         close(fd_pid);
         exit(EXIT_FAILURE);
     }
-  
+
     free(name_fifo);
 }
 
@@ -182,27 +190,28 @@ void close_all_fd()
 
     for (fd = sysconf(_SC_OPEN_MAX); fd > 0; --fd)
     {
-        if (fd != fd_pid && fd != fd_fifo) close(fd);
+        if (fd != fd_pid && fd != fd_fifo)
+            close(fd);
     }
 }
 
-void open_in_out_err(char* in_file, char* out_file, char* err_file)
+void open_in_out_err(char *in_file, char *out_file, char *err_file)
 {
-    int in  = open(in_file,  O_RDONLY | O_CREAT, 00444);
+    int in = open(in_file, O_RDONLY | O_CREAT, 00444);
     int out = open(out_file, O_WRONLY | O_CREAT | O_TRUNC, 00222);
     int err = open(err_file, O_WRONLY | O_CREAT | O_TRUNC, 00222);
 
     if (in == -1 || out == -1 || err == -1)
-    {   
+    {
         close(in);
         close(out);
         close(err);
         close(fd_pid);
         close(fd_fifo);
         exit(EXIT_FAILURE);
-    }   
+    }
 
-    if (dup2(in, 0) == -1 || dup2(out, 1) == -1 || dup2(err, 2) == -1) 
+    if (dup2(in, 0) == -1 || dup2(out, 1) == -1 || dup2(err, 2) == -1)
     {
         close(0);
         close(1);
@@ -214,4 +223,113 @@ void open_in_out_err(char* in_file, char* out_file, char* err_file)
         close(fd_fifo);
         exit(EXIT_FAILURE);
     }
+}
+
+int dump(char *dst_path)
+{
+    char log_name[MAX_LEN] = "";
+    snprintf(log_name, MAX_LEN, "%s/log.txt", dst_path);
+
+    int fd = open(log_name, O_RDWR | O_CREAT | O_TRUNC, 0666);
+    if (fd == -1)
+    {
+        syslog(LOG_NOTICE, "log doesn't open");
+        return 1;
+    }
+
+    char buffer[MAX_LEN] = "journalctl -b | grep POWER";
+    struct Text input_text = {};
+    input_text.cmds = placing_pointers_in_text(buffer, 2);
+
+    int *pipes = (int *)calloc(1, 2 * sizeof(int));
+
+    if (!pipes)
+    {
+        syslog(LOG_ERR, "don't allocate memory for pipes");
+        return 1;
+    }
+
+    for (int i = 0; i < 1; ++i)
+    {
+        if (pipe(pipes + 2 * i) == -1)
+        {
+            free(pipes);
+            syslog(LOG_ERR, "pipe()");
+            return 1;
+        }
+    }
+
+    int status = 0;
+    pid_t pid = 0;
+
+    for (int i = 0; i < 2; ++i)
+    {
+        if ((pid = fork()) == 0) // child
+        {
+            if (i != 0)
+            {
+                if (dup2(pipes[2 * (i - 1)], STDIN_FILENO) == -1)
+                {
+                    free(pipes);
+                    syslog(LOG_ERR, "dup2()");
+                    return 1;
+                }
+            }
+
+            if (i != 1)
+            {
+                if (dup2(pipes[2 * i + 1], fd) == -1)
+                {
+                    free(pipes);
+                    syslog(LOG_ERR, "dup2()");
+                    return 1;
+                }
+            }
+
+            for (int j = 0; j < 2; ++j)
+            {
+                if (close(pipes[j]) == -1)
+                {
+                    free(pipes);
+                    syslog(LOG_ERR, "close pipes");
+                    return 1;
+                }
+            }
+
+            if (execvp(input_text.cmds[i].argv[0], input_text.cmds[i].argv) == -1)
+            {
+                free(pipes);
+                return 1;
+            }
+        }
+    }
+
+    for (int i = 0; i < 2; ++i)
+    {
+        if (close(pipes[i]) == -1)
+        {
+            free(pipes);
+            syslog(LOG_ERR, "close pipes");
+            return 1;
+        }
+    }
+
+    for (int i = 0; i < 2; ++i)
+    {
+        pid = wait(&status);
+
+        if (pid == -1)
+        {
+            free(pipes);
+            syslog(LOG_ERR, "wait()");
+            return 1;
+        }
+    }
+
+    free(pipes);
+    close(fd);
+    free(input_text.cmds);
+
+    syslog(LOG_NOTICE, "dump in %s", log_name);
+    return 0;
 }
