@@ -12,8 +12,6 @@ int main(int argc, char* argv[])
 
     char src_directory[1001] = "";
     char dst_directory[1001] = "";
-    size_t src_len = 0;
-    size_t dst_len = 0;
 
     if (argc == 3) 
     {
@@ -24,8 +22,6 @@ int main(int argc, char* argv[])
 
         strncpy(src_directory, argv[1], 1000);
         strncpy(dst_directory, argv[2], 1000);
-        src_len = strlen(src_directory);
-        dst_len = strlen(dst_directory);
     }
 
     if (daemonize(NULL, NULL, NULL, NULL, NULL) != 0)
@@ -56,7 +52,44 @@ int main(int argc, char* argv[])
             case SIGALRM:
             {
                 alarm(delay);
-                syslog(LOG_NOTICE, "alarm");
+
+                int result   = 0;
+                char* first  = strstr(dst_directory, src_directory);
+                char* second = strstr(src_directory, dst_directory);
+
+                if (first)
+                {
+                    if (*(first + strlen(src_directory)) == '/')  result = 1;
+                }
+
+                if (second)
+                {
+                    if (*(second + strlen(dst_directory)) == '/') result = 1;
+                }
+                
+                if (!result)
+                {
+                    syslog(LOG_NOTICE, "backup started");
+
+                    if (!check_dst(dst_directory))
+                    {
+                        syslog(LOG_ERR, "dst check error");
+                        shutdown(signum);
+                    };
+
+                    if (backup(src_directory, dst_directory))
+                    {
+                        syslog(LOG_NOTICE, "backup not completed");
+                    }
+                    else
+                    {
+                        syslog(LOG_NOTICE, "backup completed");
+                    }
+                }
+                else
+                {
+                    syslog(LOG_NOTICE, "backup was ignored, please, change source or destination directory");
+                }
             }
             break;
 
@@ -91,7 +124,6 @@ int main(int argc, char* argv[])
 
                     if (!dir)
                     {
-                        src_len = 0;
                         syslog(LOG_WARNING, "controller send novalid directory path");
                         break;
                     }
@@ -103,7 +135,6 @@ int main(int argc, char* argv[])
                         syslog(LOG_WARNING, "source and destination directory are the same, so backup will be ignored");
                     }
 
-                    src_len = strlen(src_directory);
                     syslog(LOG_NOTICE, "controller set a new src directory: \"%s\"", src_directory);
                 }
                 else
@@ -128,7 +159,6 @@ int main(int argc, char* argv[])
                     }
                     else if (!dir)
                     {
-                        dst_len = 0;
                         syslog(LOG_WARNING, "controller send novalid directory path");
                         break;
                     }
@@ -140,7 +170,6 @@ int main(int argc, char* argv[])
                         syslog(LOG_WARNING, "source and destination directory are the same, so backup will be ignored");
                     }
 
-                    dst_len = strlen(dst_directory);
                     syslog(LOG_NOTICE, "controller set a new dst directory: \"%s\"", dst_directory);
                 }
             }

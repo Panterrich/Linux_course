@@ -54,7 +54,8 @@ void menu(pid_t pid)
            "[" RED(2) "] Change source/destination\n"
            "[" RED(3) "] Change interval\n"
            "[" RED(4) "] Change mod - classic or inotify\n"
-           "[" RED(5) "] Exit \n\n\n", pid);
+           "[" RED(5) "] KILL\n"
+           "[" RED(6) "] Exit \n\n\n", pid);
     
         if (processing_mode(pid)) return;
     }
@@ -94,7 +95,8 @@ int processing_mode(pid_t pid)
                           (mode != KEY_2) &&
                           (mode != KEY_3) &&
                           (mode != KEY_4) &&
-                          (mode != KEY_5);
+                          (mode != KEY_5) &&
+                          (mode != KEY_6);
                                             mode = getkey());
 
     switch (mode)
@@ -116,6 +118,10 @@ int processing_mode(pid_t pid)
             break;
 
         case KEY_5:
+            kill(pid, SIGTERM);
+            return 1;
+
+        case KEY_6:
             return 1;
 
         default:

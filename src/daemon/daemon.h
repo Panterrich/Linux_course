@@ -1,6 +1,8 @@
 #ifndef DAEMON_H
 #define DAEMON_H
 
+#define _LARGEFILE64_SOURCE
+
 #include <stdio.h>    
 #include <stdlib.h>  
 #include <unistd.h>
@@ -12,6 +14,8 @@
 #include <errno.h>
 #include <sys/file.h>
 #include <dirent.h>
+#include <sys/time.h>
+#include <utime.h>
 
 //=========================================================================================
 
@@ -24,6 +28,8 @@ enum MODE
 //=========================================================================================
 
 int check_args(char* src, char* dst);
+
+int check_dst(char* dst);
 
 int daemonize(char* name, char* path, char* in_file, char* out_file, char* err_file);
 
@@ -48,5 +54,13 @@ void open_in_out_err(char* in_file, char* out_file, char* err_file);
 void shutdown(int num);
 
 //=========================================================================================
+
+int search(char* dir_path, char* file);
+
+int backup(char* src_path, char* dst_path);
+
+int copy_file(char* src_file_path, char* dst_file_path);
+
+size_t file_size(int fd);
 
 #endif // DAEMON_H
