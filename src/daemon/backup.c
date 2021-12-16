@@ -47,7 +47,6 @@ int backup(char* src_path, char* dst_path)
     char dst_name[MAX_LEN] = "";
 
     struct stat src_info = {};
-    struct stat dst_info = {};
 
     int result = stat(src_path, &src_info);
     if (result == -1)
@@ -75,87 +74,80 @@ int backup(char* src_path, char* dst_path)
             snprintf(src_name, MAX_LEN, "%s/%s", src_path, src_entry->d_name);
             snprintf(dst_name, MAX_LEN, "%s/%s", dst_path, src_entry->d_name);
 
-            if (search(dst_path, src_entry->d_name))
+            syslog(LOG_NOTICE, "backup \"%s\"", src_name);
+
+            switch (src_entry->d_type)
             {
-                syslog(LOG_NOTICE, "\"%s\" has already exist in backup", src_name);
-
-                if (stat(src_name, &src_info))
+                case DT_FIFO:
                 {
-                    closedir(src_dir);
-                    syslog(LOG_ERR, "src stat");
-                    return 1;
-                }
-
-                if (stat(dst_name, &dst_info))
-                {
-                    closedir(src_dir);
-                    syslog(LOG_ERR, "dst stat");
-                    return 1;
-                }
-                
-                if (src_entry->d_type == DT_REG || src_entry->d_type == DT_LNK)
-                {
-                    if (src_info.st_mtim.tv_sec > dst_info.st_mtim.tv_sec)
-                    {
-                        syslog(LOG_NOTICE, "\"%s\" has been changed", src_name);
-
-                        if (copy_file(src_name, dst_name))
-                        {   
-                            closedir(src_dir);
-                            syslog(LOG_ERR, "copy file \"%s\" was not done", src_name);
-                            return 1;
-                        }
-                    }                    
-                }
-
-                if (src_entry->d_type == DT_DIR)
-                {
-                    if (backup(src_name, dst_name)) 
+                    struct stat info_current_file = {};
+                    if (stat(src_name, &info_current_file) == -1)
                     {   
                         closedir(src_dir);
+                        syslog(LOG_ERR, "stat \"%s\" file", src_name);
                         return 1;
                     }
-                }
 
-                struct utimbuf last_mod_time = {.actime = src_info.st_mtim.tv_sec, .modtime = src_info.st_mtim.tv_sec};
-                if (utime(dst_path, &last_mod_time))
-                {   
-                    closedir(src_dir);
-                    syslog(LOG_ERR, "utime update \"%s\"", dst_path);
-                    return 1;
-                }
-                
-            }
-            else
-            {
-                syslog(LOG_NOTICE, "\"%s\" doesn't exist in backup, so backup it", src_name);
-
-                if (src_entry->d_type == DT_FIFO)
-                {
-                    if (mkfifo(dst_name, 0666))
+                    if (mkfifo(dst_name, info_current_file.st_mode))
                     {
                         closedir(src_dir);
                         syslog(LOG_ERR, "mkfifo \"%s\" error", src_name);
                         return 1;
                     }
                 }
+                break;
 
-                if (src_entry->d_type == DT_REG || src_entry->d_type == DT_LNK)
+                case DT_REG:
                 {
+                    struct stat info_current_file = {};
+                    if (stat(src_name, &info_current_file) == -1)
+                    {   
+                        closedir(src_dir);
+                        syslog(LOG_ERR, "stat \"%s\" file", src_name);
+                        return 1;
+                    }
+
                     if (copy_file(src_name, dst_name))
                     {   
                         closedir(src_dir);
                         syslog(LOG_ERR, "copy file \"%s\" was not done", src_name);
                         return 1;
                     }
-                }
 
-                if (src_entry->d_type == DT_DIR)
-                {
-                    if (mkdir(dst_name, 0666) == -1)
+                    if (chmod(dst_name, info_current_file.st_mode) == -1)
                     {
                         closedir(src_dir);
-                        syslog(LOG_ERR, "mkdir \"%s\" error", src_name);
+                        syslog(LOG_ERR, "chmod \"%s\" was not done", dst_name);
+                        return 1;
+                    }
+                }
+                break;
+
+                case DT_LNK:
+                {
+                    if (copy_link(src_name, dst_name))
+                    {
+                        closedir(src_dir);
+                        syslog(LOG_ERR, "copy link \"%s\" was not done", src_name);
+                        return 1;
+                    }
+                }
+                break;
+
+                case DT_DIR:
+                {
+                    struct stat info_current_file = {};
+                    if (stat(src_name, &info_current_file) == -1)
+                    {   
+                        closedir(src_dir);
+                        syslog(LOG_ERR, "stat \"%s\" file", src_name);
+                        return 1;
+                    }
+
+                    if (mkdir(dst_name, info_current_file.st_mode) == -1)
+                    {
+                        closedir(src_dir);
+                        syslog(LOG_ERR, "mkdir \"%s\" error", dst_name);
                         return 1;
                     }
 
@@ -165,14 +157,24 @@ int backup(char* src_path, char* dst_path)
                         return 1;
                     }
                 }
+                break;
+            
+                default:
+                {
+                    syslog(LOG_NOTICE, "\"%s\" was ignored", src_name);
+                }
+                break;
             }
-
-            memset(src_name, 0, MAX_LEN);
-            memset(dst_name, 0, MAX_LEN);
-
         }
 
+        memset(src_name, 0, MAX_LEN);
+        memset(dst_name, 0, MAX_LEN);
+
         closedir(src_dir);
+    }
+    else
+    {
+        syslog(LOG_ERR, "backup(src_path) when src_path \"%s\" isn't directory", src_name);
     }
 
     return 0;
@@ -258,6 +260,42 @@ int copy_file(char* src_file_path, char* dst_file_path)
     close(src_fd);
     close(dst_fd);
 
+    return 0;
+}
+
+int copy_link(char* src_file_path, char* dst_file_path)
+{
+    if (strcmp(src_file_path, dst_file_path) == 0)
+    {
+        return 0;
+    }
+    
+    struct stat info = {};
+    if (lstat(src_file_path, &info) == -1)
+    {
+        syslog(LOG_ERR, "lstat error");
+        return 1;
+    }
+
+    char* buffer = (char*) calloc(info.st_size + 1, sizeof(char));
+
+    if (readlink(src_file_path, buffer, info.st_size) != info.st_size) 
+    {   
+        free(buffer);
+        syslog(LOG_ERR, "readlink error");
+        return 1;
+    }
+   
+    buffer[info.st_size] = '\0';
+
+    if (symlink(buffer, dst_file_path))
+    {   
+        free(buffer);
+        syslog(LOG_ERR, "symblink error");
+        return 1;
+    }
+    
+    free(buffer);
     return 0;
 }
 
