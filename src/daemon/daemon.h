@@ -17,8 +17,11 @@
 #include <sys/time.h>
 #include <utime.h>
 #include <wait.h>
+#include <limits.h>
+#include <time.h>
 
 #define MAX_LEN 4096
+
 
 //=========================================================================================
 
@@ -65,6 +68,8 @@ int search(char* dir_path, char* file);
 int backup(char* src_path, char* dst_path);
 
 int copy_file(char* src_file_path, char* dst_file_path);
+
+int copy_link(char* src_file_path, char* dst_file_path);
 
 size_t file_size(int fd);
 
