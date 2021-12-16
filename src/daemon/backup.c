@@ -130,6 +130,16 @@ int backup(char* src_path, char* dst_path)
             {
                 syslog(LOG_NOTICE, "\"%s\" doesn't exist in backup, so backup it", src_name);
 
+                if (src_entry->d_type == DT_FIFO)
+                {
+                    if (mkfifo(dst_name, 0666))
+                    {
+                        closedir(src_dir);
+                        syslog(LOG_ERR, "mkfifo \"%s\" error", src_name);
+                        return 1;
+                    }
+                }
+
                 if (src_entry->d_type == DT_REG || src_entry->d_type == DT_LNK)
                 {
                     if (copy_file(src_name, dst_name))
