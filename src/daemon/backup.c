@@ -435,8 +435,8 @@ int backup_inotify_full(char* src_path, char* dst_path)
             return 1;
         }
 
-        int wd_inotify = inotify_add_watch(fd_inotify, src_path, IN_CREATE | IN_DELETE | IN_MODIFY | IN_EXCL_UNLINK | \
-                                                                 IN_DELETE_SELF | IN_MOVE_SELF | IN_MOVED_FROM | IN_MOVED_TO);
+        int wd_inotify = inotify_add_watch(fd_inotify, src_path, IN_CREATE | IN_MODIFY | IN_EXCL_UNLINK |   \
+                                                                 IN_DELETE_SELF /* | IN_MOVE_SELF  | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO*/);
         if (wd_inotify == -1)
         {
             syslog(LOG_ERR, "inotify_add_watch");
@@ -598,9 +598,31 @@ int backup_inotify_inc(char* src_directory, char* dst_directory)
             }
 
             syslog(LOG_NOTICE, "New event %s", current_element->key);
+            
+            if (((struct inotify_event*)buffer)->mask & IN_DELETE_SELF)
+            {
+                snprintf(src_name, MAX_LEN, "%s/%s", current_element->key, ((struct inotify_event*)buffer)->name);
+                syslog(LOG_NOTICE, "%s backup", src_name);
+
+                char* res = strstr(src_name, src_directory);
+                if (res == NULL)
+                {
+                    syslog(LOG_ERR, "%s src file is not in \"%s\"", src_name, src_directory);
+                    return 1;
+                }
+
+                res = src_name + strlen(src_directory) + 1;
+                snprintf(dst_name, MAX_LEN, "%s/%s", dst_directory, res);
+
+                char* del_str = current_element->key;
+                current_element = current_element->next;
+                hashtable_remove(&table, del_str);
+                continue;
+            }
+
             new_modification = 0;
             
-            if (((struct inotify_event*)buffer)->mask && IN_CREATE)
+            if (((struct inotify_event*)buffer)->mask & IN_CREATE)
             {
                 snprintf(src_name, MAX_LEN, "%s/%s", current_element->key, ((struct inotify_event*)buffer)->name);
                 syslog(LOG_NOTICE, "%s backup", src_name);
@@ -660,6 +682,71 @@ int backup_inotify_inc(char* src_directory, char* dst_directory)
                     if (mkfifo(dst_name, src_info.st_mode) == -1)
                     {
                         syslog(LOG_ERR, "mkfifo \"%s\" error", src_name);
+                        return 1;
+                    }
+                }
+
+                if (S_ISLNK(src_info.st_mode))
+                {
+                    if (copy_link(src_name, dst_name))
+                    {
+                        syslog(LOG_ERR, "copy link \"%s\" was not done", src_name);
+                        return 1;
+                    }
+                }
+            }
+
+            if (((struct inotify_event*)buffer)->mask & IN_MODIFY)
+            {
+                snprintf(src_name, MAX_LEN, "%s/%s", current_element->key, ((struct inotify_event*)buffer)->name);
+                syslog(LOG_NOTICE, "%s backup", src_name);
+
+                char* res = strstr(src_name, src_directory);
+                if (res == NULL)
+                {
+                    syslog(LOG_ERR, "%s src file is not in \"%s\"", src_name, src_directory);
+                    return 1;
+                }
+
+                res = src_name + strlen(src_directory) + 1;
+                snprintf(dst_name, MAX_LEN, "%s/%s", dst_directory, res);
+
+                if (create_directories(dst_name, dst_directory, src_name, src_directory))
+                {
+                    return 1;
+                }
+
+                if (lstat(src_name, &src_info))
+                {
+                    syslog(LOG_ERR, "stat \"%s\" file", src_name);
+                    return 1;
+                }
+
+                if (S_ISDIR(src_info.st_mode))
+                {
+                    if (mkdir(dst_name, src_info.st_mode) == -1)
+                    {
+                        syslog(LOG_ERR, "mkdir \"%s\" error", dst_name);
+                        return 1;
+                    }
+
+                    if (backup_inotify_full(src_name, dst_name)) 
+                    {   
+                        return 1;
+                    }
+                }
+
+                if (S_ISREG(src_info.st_mode))
+                {
+                    if (copy_file(src_name, dst_name))
+                    {   
+                        syslog(LOG_ERR, "copy file \"%s\" was not done", src_name);
+                        return 1;
+                    }
+
+                    if (chmod(dst_name, src_info.st_mode) == -1)
+                    {
+                        syslog(LOG_ERR, "chmod \"%s\" was not done", dst_name);
                         return 1;
                     }
                 }
