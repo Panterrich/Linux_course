@@ -4,6 +4,8 @@
 int fd_pid = 0;
 int fd_fifo = 0;
 
+extern struct hashtable table;
+
 int daemonize(char *name, char *path, char *in_file, char *out_file, char *err_file)
 {
     if (!name)
@@ -67,6 +69,8 @@ void shutdown(int num)
     close(fd_fifo);
     close(fd_pid);
 
+    hashtable_dtor(&table);
+
     closelog();
     exit(EXIT_SUCCESS);
 }
@@ -75,11 +79,11 @@ void sighandler_configuration()
 {
     struct sigaction sa = {.sa_handler = SIG_IGN};
 
-    // if (sigaction(SIGCHLD, &sa, NULL) == -1)
-    // {
-    //     perror("ERROR: SIGCHLD sigaction");
-    //     exit(EXIT_FAILURE);
-    // }
+    if (sigaction(SIGCHLD, &sa, NULL) == -1)
+    {
+        perror("ERROR: SIGCHLD sigaction");
+        exit(EXIT_FAILURE);
+    }
     if (sigaction(SIGHUP, &sa, NULL) == -1)
     {
         perror("ERROR: SIGHUP sigaction");
@@ -95,6 +99,7 @@ void sigmask_configuration(sigset_t *wait)
     sigaddset(wait, SIGALRM);
     sigaddset(wait, SIGTERM);
     sigaddset(wait, SIGQUIT);
+    sigaddset(wait, SIGCHLD);
     sigaddset(wait, SIGHUP);
     sigaddset(wait, SIGINT);
 
@@ -223,113 +228,4 @@ void open_in_out_err(char *in_file, char *out_file, char *err_file)
         close(fd_fifo);
         exit(EXIT_FAILURE);
     }
-}
-
-int dump(char *dst_path)
-{
-    char log_name[MAX_LEN] = "";
-    snprintf(log_name, MAX_LEN, "%s/log.txt", dst_path);
-
-    int fd = open(log_name, O_RDWR | O_CREAT | O_TRUNC, 0666);
-    if (fd == -1)
-    {
-        syslog(LOG_NOTICE, "log doesn't open");
-        return 1;
-    }
-
-    char buffer[MAX_LEN] = "journalctl -b | grep POWER";
-    struct Text input_text = {};
-    input_text.cmds = placing_pointers_in_text(buffer, 2);
-
-    int *pipes = (int *)calloc(1, 2 * sizeof(int));
-
-    if (!pipes)
-    {
-        syslog(LOG_ERR, "don't allocate memory for pipes");
-        return 1;
-    }
-
-    for (int i = 0; i < 1; ++i)
-    {
-        if (pipe(pipes + 2 * i) == -1)
-        {
-            free(pipes);
-            syslog(LOG_ERR, "pipe()");
-            return 1;
-        }
-    }
-
-    int status = 0;
-    pid_t pid = 0;
-
-    for (int i = 0; i < 2; ++i)
-    {
-        if ((pid = fork()) == 0) // child
-        {
-            if (i != 0)
-            {
-                if (dup2(pipes[2 * (i - 1)], STDIN_FILENO) == -1)
-                {
-                    free(pipes);
-                    syslog(LOG_ERR, "dup2()");
-                    return 1;
-                }
-            }
-
-            if (i != 1)
-            {
-                if (dup2(pipes[2 * i + 1], fd) == -1)
-                {
-                    free(pipes);
-                    syslog(LOG_ERR, "dup2()");
-                    return 1;
-                }
-            }
-
-            for (int j = 0; j < 2; ++j)
-            {
-                if (close(pipes[j]) == -1)
-                {
-                    free(pipes);
-                    syslog(LOG_ERR, "close pipes");
-                    return 1;
-                }
-            }
-
-            if (execvp(input_text.cmds[i].argv[0], input_text.cmds[i].argv) == -1)
-            {
-                free(pipes);
-                return 1;
-            }
-        }
-    }
-
-    for (int i = 0; i < 2; ++i)
-    {
-        if (close(pipes[i]) == -1)
-        {
-            free(pipes);
-            syslog(LOG_ERR, "close pipes");
-            return 1;
-        }
-    }
-
-    for (int i = 0; i < 2; ++i)
-    {
-        pid = wait(&status);
-
-        if (pid == -1)
-        {
-            free(pipes);
-            syslog(LOG_ERR, "wait()");
-            return 1;
-        }
-    }
-
-    free(pipes);
-    close(fd);
-    free(input_text.cmds);
-
-    syslog(LOG_NOTICE, "dump in %s", log_name);
-    return 0;
 }

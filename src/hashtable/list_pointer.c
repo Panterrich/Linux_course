@@ -25,6 +25,8 @@ int list_pointer_dtor(struct list_pointer* list)
 
     list->size = 0;
     list->name = NULL;
+
+    return 0;
 }
 
 void list_pointer_clear(struct list_pointer* list)
@@ -40,6 +42,8 @@ void list_pointer_clear(struct list_pointer* list)
 
         current_element->prev  = NULL;
         current_element->next  = NULL;
+
+        close(current_element->value);
         current_element->value = 0;
 
         free(current_element->key);
@@ -249,6 +253,7 @@ void list_pointer_delete_element(struct list_pointer* list, size_t number)
     
     current_element->next  = NULL;
     current_element->prev  = NULL;
+    close(current_element->value);
     current_element->value = 0;
 
     free(current_element->key);
@@ -289,6 +294,8 @@ void list_pointer_delete(struct list_pointer* list, struct list_pointer_t* eleme
     
     element->next  = NULL;
     element->prev  = NULL;
+
+    close(element->value);
     element->value = 0;
 
     free(element->key);
@@ -392,7 +399,7 @@ void list_pointer_graph(struct list_pointer* list)
     fprintf(text, "\tHEAD [style = filled, color = black, fillcolor = salmon1]; \n");
     fprintf(text, "\tTAIL [style = filled, color = black, fillcolor = salmon1]; \n");
     
-    fprintf(text, "\tHEAD -> %ld [color = deeppink]; \n", list->size != 0);
+    fprintf(text, "\tHEAD -> %d [color = deeppink]; \n", list->size != 0);
     fprintf(text, "\tTAIL -> %ld [color = deeppink]; \n", list->size);
 
     fprintf(text, "}\n");

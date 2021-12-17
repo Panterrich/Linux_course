@@ -11,6 +11,8 @@ int hashtable_ctor(struct hashtable* table, size_t size)
     {
         list_pointer_ctor(table->keys + i, "hashtable");
     }
+
+    return 0;
 }
 
 int hashtable_dtor(struct hashtable* table)
@@ -26,6 +28,8 @@ int hashtable_dtor(struct hashtable* table)
 
     table->size = 0;
     table->keys = NULL;
+
+    return 0;
 }
 
 int hashtable_get_value(struct hashtable* table, const char* key)
