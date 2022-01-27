@@ -38,6 +38,3 @@ Features:
     * 2 modes of operation: classic (creates a full copy once in a set interval), inotify (creates an incremental version when creating or deleting files). The second mode is implemented on hash tables for the ease of directory control.
 
 * And also very easy class tasks
-
-
-    
