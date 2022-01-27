@@ -9,7 +9,6 @@ Features:
     * Handling system сall errors.
     * The file is processed using a static buffer (no dynamic memory is allocated).
     * Overflow protection. The numbers can be as long as you want.
-<br/>
 
 * Pipe - implementation of the terminal operator | (conveyor). <br/>
 Features:
